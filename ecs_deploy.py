@@ -22,7 +22,7 @@ import argparse
 import boto3
 from botocore.exceptions import ClientError
 
-def new_task_definition(family, definition, image, networkMode):
+def new_task_definition(family, definition, image, networkMode, taskRoleArn):
     """
     Registers a new ECS Task definition
     """
@@ -44,6 +44,7 @@ def new_task_definition(family, definition, image, networkMode):
         response = client.register_task_definition(
             family=family,
             networkMode=networkMode,
+            taskRoleArn=taskRoleArn,
             containerDefinitions=[task_definition]
         )
         return response['taskDefinition']['taskDefinitionArn']
@@ -109,8 +110,13 @@ def main():
     cluster = os.getenv('ECS_CLUSTER_NAME')
     service = os.getenv('ECS_SERVICE_NAME')
     family = os.getenv('ECS_TASK_FAMILY_NAME')
+    account_id = os.getenv('AWS_ACCOUNT_ID')
+    role_name = os.getenv('TASK_ROLE_NAME')
     network_mode = os.getenv("ECS_TASK_NETWORK_MODE", default="bridge")
-    task_definition = new_task_definition(family, args.definition, args.image, network_mode)
+    role_arn = None
+    if role_name:
+        role_arn = "arn:aws:iam::{0}:role/{1}".format(account_id, role_name)
+    task_definition = new_task_definition(family, args.definition, args.image, network_mode, role_arn)
 
     if task_definition:
         if not update_service(cluster, service, int(args.count), task_definition,
